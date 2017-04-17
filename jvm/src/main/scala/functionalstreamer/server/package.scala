@@ -7,6 +7,8 @@ package object server {
   type TotalHandler   = HttpExchange => Response
   type Path           = String
 
+  val defaultEncoding = "utf8"
+
   // Converters between the native API types and the overlay types we defined
   object -> {
     def unapply(exchange: HttpExchange): Option[(Method, Path)] =
