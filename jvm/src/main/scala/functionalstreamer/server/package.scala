@@ -3,8 +3,9 @@ package functionalstreamer
 import com.sun.net.httpserver.{HttpHandler, HttpExchange}
 
 package object server {
-  type Handler = PartialFunction[HttpExchange, Unit]
-  type Path    = String
+  type PartialHandler = PartialFunction[HttpExchange, Unit]
+  type TotalHandler   = HttpExchange => Unit
+  type Path           = String
 
   // Converters between the native API types and the overlay types we defined
   object -> {
@@ -18,10 +19,5 @@ package object server {
       case "post" => Some(POST)
       case _      => None
     }
-  }
-
-  implicit def toNativeHandler(handler: Handler): HttpHandler = { exchange: HttpExchange =>
-    if (handler.isDefinedAt(exchange)) handler(exchange)
-    else ServerAPI.serveString(exchange, "Not Found", 404)
   }
 }

@@ -8,11 +8,16 @@ import org.apache.commons.io.{IOUtils, FileUtils}
 
 object ServerAPI extends ServerAPI
 trait ServerAPI {
-  def createServer(port: Int)(handler: Handler): HttpServer = {
+  def createServer(port: Int)(handler: PartialHandler, errorHandler: TotalHandler = defaultErrorHandler): HttpServer = {
     val server = HttpServer.create(new InetSocketAddress(port), 0)
-    server.createContext("/", handler)
+    server.createContext("/", { e: HttpExchange =>
+      if (handler.isDefinedAt(e)) handler(e)
+      else errorHandler(e)
+    })
     server
   }
+
+  val defaultErrorHandler: TotalHandler = serveString(_, "Not Found", 404)
 
   def serveFile(e: HttpExchange, path: String, contentType: String = "text/html"): Unit = {
     val file   = new File(s"assets/$path")
@@ -29,7 +34,7 @@ trait ServerAPI {
   }
 
   def serveString(e: HttpExchange, str: String, responseCode: Int): Unit = {
-    e.sendResponseHeaders(404, 0)
+    e.sendResponseHeaders(responseCode, 0)
     val os = e.getResponseBody()
     try IOUtils.write(str, os)
     finally os.close()
