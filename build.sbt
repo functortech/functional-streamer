@@ -29,7 +29,8 @@ lazy val commonSettings = Seq(
       "-Xlint",
       "-Ywarn-dead-code",
       "-Xfuture",
-      "-Ypartial-unification")
+      "-Ypartial-unification",
+      "-Ywarn-unused-import")
 )
 
 lazy val root = project.in(file(".")).

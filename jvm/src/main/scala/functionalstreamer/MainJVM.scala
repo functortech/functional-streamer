@@ -1,6 +1,7 @@
 package functionalstreamer
 
-import ServerAPI._
+import server._
+import server.ServerAPI._
 
 object MainJVM {
   def main(args: Array[String]): Unit = {
