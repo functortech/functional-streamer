@@ -27,4 +27,11 @@ trait ServerAPI {
       fileIs.close()
     }
   }
+
+  def serveString(e: HttpExchange, str: String, responseCode: Int): Unit = {
+    e.sendResponseHeaders(404, 0)
+    val os = e.getResponseBody()
+    try IOUtils.write(str, os)
+    finally os.close()
+  }
 }

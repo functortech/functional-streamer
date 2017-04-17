@@ -1,7 +1,6 @@
 package functionalstreamer
 
 import com.sun.net.httpserver.{HttpHandler, HttpExchange}
-import org.apache.commons.io.{IOUtils, FileUtils}
 
 package object server {
   type Handler = PartialFunction[HttpExchange, Unit]
@@ -23,11 +22,6 @@ package object server {
 
   implicit def toNativeHandler(handler: Handler): HttpHandler = { exchange: HttpExchange =>
     if (handler.isDefinedAt(exchange)) handler(exchange)
-    else {
-      exchange.sendResponseHeaders(404, 0)
-      val os = exchange.getResponseBody()
-      try IOUtils.write("Not found", os)
-      finally os.close()
-    }
+    else ServerAPI.serveString(exchange, "Not Found", 404)
   }
 }
