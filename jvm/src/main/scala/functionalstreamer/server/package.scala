@@ -3,8 +3,8 @@ package functionalstreamer
 import com.sun.net.httpserver.{HttpHandler, HttpExchange}
 
 package object server {
-  type PartialHandler = PartialFunction[HttpExchange, Unit]
-  type TotalHandler   = HttpExchange => Unit
+  type PartialHandler = PartialFunction[HttpExchange, Response]
+  type TotalHandler   = HttpExchange => Response
   type Path           = String
 
   // Converters between the native API types and the overlay types we defined
