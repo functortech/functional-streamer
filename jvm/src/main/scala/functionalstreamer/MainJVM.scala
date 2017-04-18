@@ -65,7 +65,7 @@ object MainJVM {
       for {
         contents      <- path.file.contents
         contentsPaths  = contents.map(_.toModel)
-        maybeParent    = path.file.parent.map(_.toModel.copy(name = ".."))
+        maybeParent    = path.file.parent.map(_.toModel.copy(tpe = FileType.Parent))
       } yield DirContentsResp(contentsPaths, maybeParent)
 
     case _ => Left(ServerError(s"Unknown JSON API request: $request"))

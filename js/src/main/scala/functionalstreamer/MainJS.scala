@@ -35,12 +35,19 @@ object MainJS extends JSApp with AjaxHelpers {
         ul( (maybeParentView ++ filesViews).map { f => li(f) }.toList ) }
 
     case FileModel(path, name, FileType.Directory) =>
-      Right( button(onclick := ajaxCallback(DirContentsReq(path)))(name) )
+      Right( p(i(`class` := "folder icon"), buttonFragment(path, name)) )
 
-    case FileModel(path, name, FileType.Misc) => Right(p(name))
+    case FileModel(path, name, FileType.Misc) =>
+      Right( p(i(`class` := "file outline icon"), span(name)) )
+
+    case FileModel(path, name, FileType.Parent) =>
+      Right( p(i(`class` := "level up icon"), buttonFragment(path, "..")) )
 
     case _ => Left(ClientError(s"Can not render view: $x"))
   }
+
+  def buttonFragment(path: String, name: String): HtmlTag =
+    button(onclick := ajaxCallback(DirContentsReq(path)))(name)
 }
 
 trait AjaxHelpers {
