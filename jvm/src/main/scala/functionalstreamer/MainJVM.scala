@@ -14,6 +14,9 @@ import org.apache.commons.io.IOUtils
 import io.circe.parser.decode
 import io.circe.generic.auto._, io.circe.syntax._  // Implicit augmentations & type classes
 
+import cats.instances.either.catsStdBitraverseForEither  // Type class for Bifunctor (which is a superclass of Bitraverse we are importing)
+import cats.syntax.bifunctor.toBifunctorOps              // Implicit augmentation of types for which Bifunctor is available with Bifunctor operations
+
 
 object MainJVM {
   implicit class AssefFileString(str: String) {
@@ -31,11 +34,9 @@ object MainJVM {
           response = Response(EchoResp(s"Echo response: ${decoded.str}").asJson.noSpaces.stream, application.json)
         } yield response
 
-        responseOrError match {
-          case Right(resp) => resp
-          case Left (err ) =>
-            Response(s"Error occurred while parsing JSON request: ${err.toString}".stream, responseCode = 400)
-        }
+        responseOrError.leftMap { err =>
+          Response(s"Error occurred while parsing JSON request: ${err.toString}".stream, responseCode = 400)
+        }.merge
     }
     server.start()
   }

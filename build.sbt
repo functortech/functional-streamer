@@ -6,6 +6,7 @@ val ScalaTags  = "0.6.3"
 val ApacheIO    = "2.5"
 val ApacheCodec = "1.10"
 
+val Cats  = "0.9.0"
 val Circe = "0.7.0"
 
 val jsPath = file("assets") / "js"
@@ -22,6 +23,8 @@ lazy val commonSettings = Seq(
   , "io.circe"    %%% "circe-core"    % Circe
   , "io.circe"    %%% "circe-generic" % Circe
   , "io.circe"    %%% "circe-parser"  % Circe
+  
+  , "org.typelevel" %%% "cats-core" % Cats
   )
 , scalacOptions ++= Seq(
       "-deprecation",
