@@ -1,7 +1,7 @@
 package functionalstreamer
 
 sealed trait APIRequest
-case class EchoReq (str: String) extends APIRequest
+case class DirContentsReq(path: String) extends APIRequest
 
 sealed trait APIResponse
-case class EchoResp(str: String) extends APIResponse
+case class DirContentsResp(contents: List[String]) extends APIResponse

@@ -15,11 +15,18 @@ object MainJS extends JSApp {
   def placeholder = document.getElementById("body-placeholder")
 
   def main(): Unit = window.onload = { _ =>
-    ajax(EchoReq("Hello from Ajax")).onComplete(renderResponse)
+    ajax(DirContentsReq("/")).onComplete(renderResponse)
   }
 
   def handleApi(response: APIResponse): Either[Throwable, ClientOperation] = response match {
-    case EchoResp(str) => Right(RenderString(str))
+    case DirContentsResp(files) =>
+      val html =
+        s"""<ul>
+           |  ${(for (f <- files) yield s"<li>$f</li>").mkString("\n")}
+           |</ul>""".stripMargin
+
+      Right(RenderString(html))
+
     case _ => Left(ClientError(s"Can not handle $response"))
   }
 

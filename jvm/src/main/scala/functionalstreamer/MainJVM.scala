@@ -1,5 +1,7 @@
 package functionalstreamer
 
+import scala.language.postfixOps
+
 import java.io.File
 
 import scala.util.Try
@@ -20,8 +22,15 @@ import cats.syntax.bifunctor.toBifunctorOps              // Implicit augmentatio
 
 
 object MainJVM {
-  implicit class AssefFileString(str: String) {
+  implicit class FileString(str: String) {
     def assetFile: File = new File(s"assets/$str")
+    def file     : File = new File(str)
+  }
+
+  implicit class FileAPI(file: File) {
+    def contents: Either[Throwable, List[File]] = Try { file.listFiles }.toEither
+      .filterOrElse(null !=, ServerError(s"Error occurred while retrieving the contents of the file: $file"))
+      .map(_.toList)
   }
 
   def main(args: Array[String]): Unit = {
@@ -43,7 +52,12 @@ object MainJVM {
   }
 
   def handleApi(request: APIRequest): Either[Throwable, APIResponse] = request match {
-    case EchoReq(str) => Right(EchoResp(s"Echo response: $str"))
+    case DirContentsReq(path) =>
+      for {
+        contents      <- path.file.contents
+        contentsPaths  = contents.map(_.getAbsolutePath)
+      } yield DirContentsResp(contentsPaths)
+
     case _ => Left(ServerError(s"Unknown JSON API request: $request"))
   }
 }
