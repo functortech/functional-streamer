@@ -11,7 +11,6 @@ import server.StreamableSyntax._
 
 import org.apache.commons.io.IOUtils
 
-import io.circe.{Error => CirceError}
 import io.circe.parser.decode
 import io.circe.generic.auto._, io.circe.syntax._  // Implicit augmentations & type classes
 
@@ -26,19 +25,13 @@ object MainJVM {
       case GET -> "/"                  => Response("html/index.html"  .assetFile.stream, text.html             )
       case GET -> "/js/application.js" => Response("js/application.js".assetFile.stream, application.javascript)
       case e @ POST -> "/api" =>
-        val reqOrError: Either[Throwable, String] =
-          Try { IOUtils.toString(e.getRequestBody, defaultEncoding) }.toEither
+        val responseOrError: Either[Throwable, Response] = for {
+          req     <- Try { IOUtils.toString(e.getRequestBody, defaultEncoding) }.toEither
+          decoded <- decode[EchoReq](req)
+          response = Response(EchoResp(s"Echo response: ${decoded.str}").asJson.noSpaces.stream, application.json)
+        } yield response
 
-        val respOrError: Either[Throwable, Response] =
-          reqOrError.flatMap { req =>
-            val decodedOrError: Either[CirceError, EchoReq] = decode[EchoReq](req)
-            decodedOrError
-              .map { case EchoReq(str) =>
-                Response(EchoResp(s"Echo response: $str").asJson.noSpaces.stream, application.json)
-              }
-          }
-
-        respOrError match {
+        responseOrError match {
           case Right(resp) => resp
           case Left (err ) =>
             Response(s"Error occurred while parsing JSON request: ${err.toString}".stream, responseCode = 400)
