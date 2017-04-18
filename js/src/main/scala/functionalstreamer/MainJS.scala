@@ -1,6 +1,7 @@
 package functionalstreamer
 
-import scala.util.{Success, Failure}
+import scala.util.{Try, Success, Failure}
+import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 
 import scala.scalajs.js.JSApp
@@ -11,17 +12,29 @@ import io.circe.parser.decode
 import io.circe.generic.auto._, io.circe.syntax._  // Implicit augmentations & type classes
 
 object MainJS extends JSApp {
+  def placeholder = document.getElementById("body-placeholder")
+
   def main(): Unit = window.onload = { _ =>
-    val placeholder = document.getElementById("body-placeholder")
+    ajax(EchoReq("Hello from Ajax")).onComplete(renderResponse)
+  }
 
-    val req = EchoReq("Hello from Ajax")
+  def handleApi(response: APIResponse): Either[Throwable, ClientOperation] = response match {
+    case EchoResp(str) => Right(RenderString(str))
+    case _ => Left(ClientError(s"Can not handle $response"))
+  }
 
-    Ajax.post(url = "/api", data = req.asJson.noSpaces)
-      .map(_.responseText).map(decode[EchoResp]).flatMap(_.toFuture)
-      .onComplete {
-        case Success(EchoResp(str)) => placeholder.innerHTML = str
-        case Failure(err: AjaxException) => placeholder.innerHTML = err.xhr.responseText
-        case Failure(err) => placeholder.innerHTML = s"Unknown error: ${err.toString}"
-      }
+  def ajax(request: APIRequest): Future[ClientOperation] =
+    for {
+      response  <- Ajax.post(url = "/api", data = request.asJson.noSpaces)
+      respText   = response.responseText
+      decoded   <- decode[APIResponse](respText).toFuture
+      operation <- handleApi(decoded).toFuture
+    } yield operation
+
+  def renderResponse(response: Try[ClientOperation]): Unit = response match {
+    case Success(RenderString(str)) => placeholder.innerHTML = str
+
+    case Failure(err: AjaxException) => placeholder.innerHTML = s"Ajax exception: ${err.xhr.responseText}"
+    case Failure(err) => placeholder.innerHTML = s"Unknown error: ${err.toString}"
   }
 }
