@@ -13,6 +13,7 @@ import io.circe.parser.decode
 import io.circe.generic.auto._, io.circe.syntax._  // Implicit augmentations & type classes
 
 import cats.syntax.all._
+import cats.instances.list._, cats.instances.option._
 import typeclasses._
 
 
@@ -30,23 +31,8 @@ object MainJS extends JSApp with AjaxHelpers {
 
   def view(x: Any): Either[ClientError, HtmlTag] = x match {
     case DirContentsResp(files, parent: Option[FileModel]) =>
-      val filesViewsEither = files.map(view)
-        .foldLeft[Either[ClientError, List[HtmlTag]]](Right(Nil)) {
-          (listOrError, nextOrError) => for {
-            list <- listOrError
-            next <- nextOrError
-          } yield list :+ next
-        }
-
-      val maybeParentViewEither = parent.map(view) match {
-        case Some(either) => either.map(Some(_))
-        case None         => Right(None)
-      }
-
-      (filesViewsEither |@| maybeParentViewEither).map { (filesViews, maybeParentView) =>
-        val listItems = (maybeParentView ++ filesViews).map { f => li(f) }.toList
-        ul(listItems)
-      }
+      (files.traverse(view) |@| parent.traverse(view)).map { (filesViews, maybeParentView) =>
+        ul( (maybeParentView ++ filesViews).map { f => li(f) }.toList ) }
 
     case FileModel(path, name, FileType.Directory) =>
       Right( button(onclick := ajaxCallback(DirContentsReq(path)))(name) )
