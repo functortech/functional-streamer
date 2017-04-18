@@ -22,4 +22,15 @@ package object server {
       case _      => None
     }
   }
+
+
+  // Content Types
+  object text {
+    val plain = "text/plain"
+    val html  = "text/html"
+  }
+
+  object application {
+    val javascript = "application/javascript"
+  }
 }

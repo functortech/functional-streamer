@@ -14,8 +14,8 @@ object MainJVM {
 
   def main(args: Array[String]): Unit = {
     val server = createServer(8080) {
-      case GET -> "/"                  => Response("html/index.html"  .assetFile.stream, "text/html"             )
-      case GET -> "/js/application.js" => Response("js/application.js".assetFile.stream, "application/javascript")
+      case GET -> "/"                  => Response("html/index.html"  .assetFile.stream, text.html             )
+      case GET -> "/js/application.js" => Response("js/application.js".assetFile.stream, application.javascript)
     }
     server.start()
   }
