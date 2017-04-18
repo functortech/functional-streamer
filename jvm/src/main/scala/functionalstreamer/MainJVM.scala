@@ -11,6 +11,7 @@ import server.StreamableSyntax._
 
 import org.apache.commons.io.IOUtils
 
+import io.circe.{ Error => CirceError }
 import io.circe.parser.decode
 import io.circe.generic.auto._, io.circe.syntax._  // Implicit augmentations & type classes
 
@@ -33,8 +34,9 @@ object MainJVM {
           decoded  <- decode[EchoReq](req)
           respJson  = handleApi(decoded)
           response  = Response(respJson.asJson.noSpaces.stream, application.json)
-        } yield response).leftMap { err =>
-          Response(s"Error occurred while parsing JSON request: ${err.toString}".stream, responseCode = 400)
+        } yield response).leftMap {
+          case e: CirceError => Response(s"Error occurred while parsing JSON request: ${e.toString}".stream, responseCode = 400)
+          case e: Throwable  => Response(s"Error occurred: ${e.toString}".stream, responseCode = 400)
         }.merge
     }
     server.start()
