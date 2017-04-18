@@ -32,5 +32,6 @@ package object server {
 
   object application {
     val javascript = "application/javascript"
+    val json       = "application/json"
   }
 }
