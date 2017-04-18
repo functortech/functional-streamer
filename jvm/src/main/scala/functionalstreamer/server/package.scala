@@ -1,6 +1,6 @@
 package functionalstreamer
 
-import com.sun.net.httpserver.{HttpHandler, HttpExchange}
+import com.sun.net.httpserver.HttpExchange
 
 package object server {
   type PartialHandler = PartialFunction[HttpExchange, Response]

@@ -6,8 +6,9 @@ val ScalaTags  = "0.6.3"
 val ApacheIO    = "2.5"
 val ApacheCodec = "1.10"
 
-val Cats  = "0.9.0"
-val Circe = "0.7.0"
+val Cats          = "0.9.0"
+val KindProjector = "0.9.3"
+val Circe         = "0.7.0"
 
 val jsPath = file("assets") / "js"
 
@@ -28,6 +29,7 @@ lazy val commonSettings = Seq(
 
   , "com.lihaoyi" %%% "scalatags" % ScalaTags
   )
+, addCompilerPlugin("org.spire-math" %% "kind-projector" % KindProjector)
 , scalacOptions ++= Seq(
       "-deprecation",
       "-encoding", "UTF-8",

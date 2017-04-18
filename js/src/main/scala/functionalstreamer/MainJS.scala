@@ -12,6 +12,9 @@ import scalatags.JsDom.all._
 import io.circe.parser.decode
 import io.circe.generic.auto._, io.circe.syntax._  // Implicit augmentations & type classes
 
+import cats.syntax.all._
+import typeclasses._
+
 
 object MainJS extends JSApp with AjaxHelpers {
   def placeholder = document.getElementById("body-placeholder")
@@ -27,26 +30,28 @@ object MainJS extends JSApp with AjaxHelpers {
 
   def view(x: Any): Either[ClientError, HtmlTag] = x match {
     case DirContentsResp(files, parent: Option[FileModel]) =>
-      for {
-        filesViews <- files.map(view)
-          .foldLeft[Either[ClientError, List[HtmlTag]]](Right(Nil)) {
-            (listOrError, nextOrError) => for {
-              list <- listOrError
-              next <- nextOrError
-            } yield list :+ next
-          }
-
-        maybeParentView <- parent.map(view) match {
-          case Some(either) => either.map(Some(_))
-          case None         => Right(None)
+      val filesViewsEither = files.map(view)
+        .foldLeft[Either[ClientError, List[HtmlTag]]](Right(Nil)) {
+          (listOrError, nextOrError) => for {
+            list <- listOrError
+            next <- nextOrError
+          } yield list :+ next
         }
-        listItems = (maybeParentView ++ filesViews).map { f => li(f) }.toList
-      } yield ul(listItems)
+
+      val maybeParentViewEither = parent.map(view) match {
+        case Some(either) => either.map(Some(_))
+        case None         => Right(None)
+      }
+
+      (filesViewsEither |@| maybeParentViewEither).map { (filesViews, maybeParentView) =>
+        val listItems = (maybeParentView ++ filesViews).map { f => li(f) }.toList
+        ul(listItems)
+      }
 
     case FileModel(path, name, FileType.Directory) =>
       Right( button(onclick := ajaxCallback(DirContentsReq(path)))(name) )
 
-    case FileModel(path, name, _) => Right(p(name))
+    case FileModel(path, name, FileType.Misc) => Right(p(name))
 
     case _ => Left(ClientError(s"Can not render view: $x"))
   }
