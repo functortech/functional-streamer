@@ -2,6 +2,8 @@ package functionalstreamer
 
 import java.io.File
 
+import scala.util.Try
+
 import server._
 import server.ServerAPI._
 
@@ -24,13 +26,17 @@ object MainJVM {
       case GET -> "/"                  => Response("html/index.html"  .assetFile.stream, text.html             )
       case GET -> "/js/application.js" => Response("js/application.js".assetFile.stream, application.javascript)
       case e @ POST -> "/api" =>
-        val req = IOUtils.toString(e.getRequestBody, defaultEncoding)
+        val reqOrError: Either[Throwable, String] =
+          Try { IOUtils.toString(e.getRequestBody, defaultEncoding) }.toEither
 
-        val respOrError: Either[CirceError, Response] =
-          decode[EchoReq](req)
-            .map { case EchoReq(str) =>
-              Response(EchoResp(s"Echo response: $str").asJson.noSpaces.stream, application.json)
-            }
+        val respOrError: Either[Throwable, Response] =
+          reqOrError.flatMap { req =>
+            val decodedOrError: Either[CirceError, EchoReq] = decode[EchoReq](req)
+            decodedOrError
+              .map { case EchoReq(str) =>
+                Response(EchoResp(s"Echo response: $str").asJson.noSpaces.stream, application.json)
+              }
+          }
 
         respOrError match {
           case Right(resp) => resp
