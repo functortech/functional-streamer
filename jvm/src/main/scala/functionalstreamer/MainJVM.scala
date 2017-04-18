@@ -28,17 +28,18 @@ object MainJVM {
       case GET -> "/"                  => Response("html/index.html"  .assetFile.stream, text.html             )
       case GET -> "/js/application.js" => Response("js/application.js".assetFile.stream, application.javascript)
       case e @ POST -> "/api" =>
-        val responseOrError: Either[Throwable, Response] = for {
-          req     <- Try { IOUtils.toString(e.getRequestBody, defaultEncoding) }.toEither
-          decoded <- decode[EchoReq](req)
-          response = Response(EchoResp(s"Echo response: ${decoded.str}").asJson.noSpaces.stream, application.json)
-        } yield response
-
-        responseOrError.leftMap { err =>
+        (for {
+          req      <- Try { IOUtils.toString(e.getRequestBody, defaultEncoding) }.toEither
+          decoded  <- decode[EchoReq](req)
+          respJson  = handleApi(decoded)
+          response  = Response(respJson.asJson.noSpaces.stream, application.json)
+        } yield response).leftMap { err =>
           Response(s"Error occurred while parsing JSON request: ${err.toString}".stream, responseCode = 400)
         }.merge
     }
     server.start()
   }
-}
 
+  def handleApi(request: EchoReq): EchoResp =
+    EchoResp(s"Echo response: ${request.str}")
+}
