@@ -25,6 +25,8 @@ lazy val commonSettings = Seq(
   , "io.circe"    %%% "circe-parser"  % Circe
   
   , "org.typelevel" %%% "cats-core" % Cats
+
+  , "com.lihaoyi" %%% "scalatags" % ScalaTags
   )
 , scalacOptions ++= Seq(
       "-deprecation",

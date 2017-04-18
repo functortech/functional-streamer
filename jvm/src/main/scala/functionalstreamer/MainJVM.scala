@@ -31,6 +31,15 @@ object MainJVM {
     def contents: Either[Throwable, List[File]] = Try { file.listFiles }.toEither
       .filterOrElse(null !=, ServerError(s"Error occurred while retrieving the contents of the file: $file"))
       .map(_.toList)
+
+    def toModel = FileModel(file.getAbsolutePath, file.getName, file.tpe)
+
+    def tpe: FileType = file match {
+      case _ if file.isDirectory => FileType.Directory
+      case _                     => FileType.Misc
+    }
+
+    def parent: Option[File] = Some(file.getParentFile).filter(null !=)
   }
 
   def main(args: Array[String]): Unit = {
@@ -55,8 +64,9 @@ object MainJVM {
     case DirContentsReq(path) =>
       for {
         contents      <- path.file.contents
-        contentsPaths  = contents.map(_.getAbsolutePath)
-      } yield DirContentsResp(contentsPaths)
+        contentsPaths  = contents.map(_.toModel)
+        maybeParent    = path.file.parent.map(_.toModel)
+      } yield DirContentsResp(contentsPaths, maybeParent)
 
     case _ => Left(ServerError(s"Unknown JSON API request: $request"))
   }
