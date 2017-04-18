@@ -17,10 +17,13 @@ import io.circe.{ Error => CirceError }
 import io.circe.parser.decode
 import io.circe.generic.auto._, io.circe.syntax._  // Implicit augmentations & type classes
 
-import cats.instances.either._, cats.instances.option._  // Type class for Bifunctor (which is a superclass of Bitraverse we are importing)
-import cats.syntax.all._                                 // Implicit augmentation of types for which Bifunctor is available with Bifunctor operations
+import cats.data.OptionT, OptionT.{fromOption => liftOpt, liftF}
+import cats.instances.either._
+import cats.syntax.all._
 
 object MainJVM {
+  type Error[A] = Either[Throwable, A]
+
   implicit class FileString(str: String) {
     def assetFile: File = new File(s"assets/$str")
     def file     : File = new File(str)
@@ -55,10 +58,12 @@ object MainJVM {
     def rightNeighborOfType(allowedTypes: Set[FileType]) =
       neighbor(f => allowedTypes(f.tpe)) { case `file` :: f :: Nil => f }
 
-    private[this] def neighbor(filter: File => Boolean)(predicate: PartialFunction[List[File], File]): Either[Throwable, Option[File]] =
-      parent.traverse(_.contents).map { mCts: Option[List[File]] =>
-        mCts.flatMap(_.filter(filter).sliding(2, 1).collectFirst(predicate))
-      }
+    private[this] def neighbor(filter: File => Boolean)(predicate: PartialFunction[List[File], File]): OptionT[Error, File] =
+      for {
+        p         <- liftOpt[Error](parent)
+        contents  <- liftF  [Error, List[File]](p.contents)
+        neighbour <- liftOpt[Error]( contents.filter(filter).sliding(2, 1).collectFirst(predicate) )
+      } yield neighbour
   }
 
   implicit class OptionToEither[A](opt: Option[A]) {
@@ -97,8 +102,8 @@ object MainJVM {
     case VideoReq(path) =>
       for {
         parent        <- path.file.parentModel.toEither
-        maybePrevious <- path.file.leftNeighborOfType (Set(FileType.Video)).map(_.map(_.toModel))
-        maybeNext     <- path.file.rightNeighborOfType(Set(FileType.Video)).map(_.map(_.toModel))
+        maybePrevious <- path.file.leftNeighborOfType (Set(FileType.Video)).map(_.toModel).value
+        maybeNext     <- path.file.rightNeighborOfType(Set(FileType.Video)).map(_.toModel).value
         streamPath     = s"/video/$path"
       } yield VideoResp(path.file.getName, streamPath, parent, maybePrevious, maybeNext)
 
