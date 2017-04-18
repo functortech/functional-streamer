@@ -20,7 +20,6 @@ import io.circe.generic.auto._, io.circe.syntax._  // Implicit augmentations & t
 import cats.instances.either.catsStdBitraverseForEither  // Type class for Bifunctor (which is a superclass of Bitraverse we are importing)
 import cats.syntax.bifunctor.toBifunctorOps              // Implicit augmentation of types for which Bifunctor is available with Bifunctor operations
 
-
 object MainJVM {
   implicit class FileString(str: String) {
     def assetFile: File = new File(s"assets/$str")
@@ -33,6 +32,7 @@ object MainJVM {
       .map(_.toList)
 
     def toModel = FileModel(file.getAbsolutePath, file.getName, file.tpe)
+    def toModelAsParent = FileModel(file.getAbsolutePath, file.getName, FileType.Parent)
 
     def tpe: FileType = file match {
       case _ if file.isDirectory => FileType.Directory
@@ -65,7 +65,7 @@ object MainJVM {
       for {
         contents      <- path.file.contents
         contentsPaths  = contents.map(_.toModel).sortBy(_.tpe != FileType.Directory)
-        maybeParent    = path.file.parent.map(_.toModel.copy(tpe = FileType.Parent))
+        maybeParent    = path.file.parent.map(_.toModelAsParent)
       } yield DirContentsResp(contentsPaths, maybeParent)
 
     case _ => Left(ServerError(s"Unknown JSON API request: $request"))
