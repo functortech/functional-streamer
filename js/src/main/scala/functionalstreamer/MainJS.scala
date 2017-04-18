@@ -12,6 +12,7 @@ import scalatags.JsDom.all._
 import io.circe.parser.decode
 import io.circe.generic.auto._, io.circe.syntax._  // Implicit augmentations & type classes
 
+
 object MainJS extends JSApp with AjaxHelpers {
   def placeholder = document.getElementById("body-placeholder")
 
@@ -20,24 +21,34 @@ object MainJS extends JSApp with AjaxHelpers {
   }
 
   def handleApi(response: APIResponse): Either[Throwable, ClientOperation] = response match {
-    case DirContentsResp(files, parent) =>
-      val filesViews: List[HtmlTag] = files.map {
-        case FileModel(path, name, FileType.Directory) =>
-          button(onclick := { () => ajax(DirContentsReq(path)).onComplete(renderResponse) })(name)
-
-        case FileModel(path, name, _) =>
-          p(name)
-      }
-
-      val maybeParent: Option[HtmlTag] = parent.map { f =>
-        button(onclick := { () => ajax(DirContentsReq(f.path)).onComplete(renderResponse) })("..")
-      }
-
-      val listItems: List[HtmlTag] = (maybeParent.toList ++ filesViews).map { f => li(f) }
-
-      Right(RenderTag( ul(listItems) ))
-
+    case resp @ DirContentsResp(files, parent) => view(resp).map(RenderTag)
     case _ => Left(ClientError(s"Can not handle $response"))
+  }
+
+  def view(x: Any): Either[ClientError, HtmlTag] = x match {
+    case DirContentsResp(files, parent: Option[FileModel]) =>
+      for {
+        filesViews <- files.map(view)
+          .foldLeft[Either[ClientError, List[HtmlTag]]](Right(Nil)) {
+            (listOrError, nextOrError) => for {
+              list <- listOrError
+              next <- nextOrError
+            } yield list :+ next
+          }
+
+        maybeParentView <- parent.map(view) match {
+          case Some(either) => either.map(Some(_))
+          case None         => Right(None)
+        }
+        listItems = (maybeParentView ++ filesViews).map { f => li(f) }.toList
+      } yield ul(listItems)
+
+    case FileModel(path, name, FileType.Directory) =>
+      Right( button(onclick := ajaxCallback(DirContentsReq(path)))(name) )
+
+    case FileModel(path, name, _) => Right(p(name))
+
+    case _ => Left(ClientError(s"Can not render view: $x"))
   }
 }
 
@@ -62,4 +73,7 @@ trait AjaxHelpers {
     case Failure(err: AjaxException) => placeholder.innerHTML = s"Ajax exception: ${err.xhr.responseText}"
     case Failure(err) => placeholder.innerHTML = s"Unknown error: ${err.toString}"
   }
+
+  def ajaxCallback(request: APIRequest): () => Unit =
+    () => ajax(request).onComplete(renderResponse)
 }
