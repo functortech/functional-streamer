@@ -7,4 +7,5 @@ object FileType {
   case object Directory extends FileType
   case object Parent    extends FileType
   case object Misc      extends FileType
+  case object Video     extends FileType
 }

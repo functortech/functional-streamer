@@ -17,7 +17,7 @@ import cats.instances.list._, cats.instances.option._
 import typeclasses._
 
 
-object MainJS extends JSApp with AjaxHelpers {
+object MainJS extends JSApp with AjaxHelpers with ViewHelpers {
   def placeholder = document.getElementById("body-placeholder")
 
   def main(): Unit = window.onload = { _ =>
@@ -25,7 +25,7 @@ object MainJS extends JSApp with AjaxHelpers {
   }
 
   def handleApi(response: APIResponse): Either[Throwable, ClientOperation] = response match {
-    case resp @ DirContentsResp(files, parent) => view(resp).map(RenderTag)
+    case resp: APIResponse => view(resp).map(RenderTag)
     case _ => Left(ClientError(s"Can not handle $response"))
   }
 
@@ -34,20 +34,52 @@ object MainJS extends JSApp with AjaxHelpers {
       (files.traverse(view) |@| parent.traverse(view)).map { (filesViews, maybeParentView) =>
         ul( (maybeParentView ++ filesViews).map { f => li(f) }.toList ) }
 
-    case FileModel(path, name, FileType.Directory) =>
-      Right( p(i(`class` := "folder icon"), buttonFragment(path, name)) )
+    case FileModel(path, name, tpe) =>
+      tpe match {
+        case FileType.Directory => fileView("folder icon"      , buttonFragment(path, name))
+        case FileType.Parent    => fileView("level up icon"    , buttonFragment(path, ".."))
+        case FileType.Misc      => fileView("file outline icon", span(name))
+        case FileType.Video     => fileView("film icon"        , buttonFragment(VideoReq(path), name))
+      }
 
-    case FileModel(path, name, FileType.Misc) =>
-      Right( p(i(`class` := "file outline icon"), span(name)) )
+    case VideoResp(name, stream, parent, previous, next) =>
+      for {
+        previousView <- view(previous)
+        nextView     <- view(next)
+        parentView   <- view(parent)
+        streamView   <- view(StreamView(stream))
+      } yield div(
+        h1(name)
+      , parentView
+      , streamView
+      , previousView
+      , nextView
+      )
 
-    case FileModel(path, name, FileType.Parent) =>
-      Right( p(i(`class` := "level up icon"), buttonFragment(path, "..")) )
+    case StreamView(stream) =>
+      Right(
+        video( width := 710, height := 400, attr("controls") := true )(
+          source(src := stream, `type` := "video/mp4")
+        )
+      )
+
+    case EmptyView => Right(p())
+
+    case opt: Option[_] => view(opt.getOrElse(EmptyView))
 
     case _ => Left(ClientError(s"Can not render view: $x"))
   }
+}
+
+trait ViewHelpers { this: AjaxHelpers =>
+  def buttonFragment(request: APIRequest, name: String): HtmlTag =
+    button(onclick := ajaxCallback(request))(name)
 
   def buttonFragment(path: String, name: String): HtmlTag =
-    button(onclick := ajaxCallback(DirContentsReq(path)))(name)
+    buttonFragment(DirContentsReq(path), name)
+
+  def fileView(iconClass: String, fragment: HtmlTag): Right[Nothing, HtmlTag] =
+    Right( p(i(`class` := iconClass), fragment) )
 }
 
 trait AjaxHelpers {

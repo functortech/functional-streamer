@@ -11,14 +11,14 @@ import server.ServerAPI._
 
 import server.StreamableSyntax._
 
-import org.apache.commons.io.IOUtils
+import org.apache.commons.io.{IOUtils, FilenameUtils}
 
 import io.circe.{ Error => CirceError }
 import io.circe.parser.decode
 import io.circe.generic.auto._, io.circe.syntax._  // Implicit augmentations & type classes
 
-import cats.instances.either.catsStdBitraverseForEither  // Type class for Bifunctor (which is a superclass of Bitraverse we are importing)
-import cats.syntax.bifunctor.toBifunctorOps              // Implicit augmentation of types for which Bifunctor is available with Bifunctor operations
+import cats.instances.either._, cats.instances.option._  // Type class for Bifunctor (which is a superclass of Bitraverse we are importing)
+import cats.syntax.all._                                 // Implicit augmentation of types for which Bifunctor is available with Bifunctor operations
 
 object MainJVM {
   implicit class FileString(str: String) {
@@ -32,14 +32,40 @@ object MainJVM {
       .map(_.toList)
 
     def toModel = FileModel(file.getAbsolutePath, file.getName, file.tpe)
-    def toModelAsParent = FileModel(file.getAbsolutePath, file.getName, FileType.Parent)
 
     def tpe: FileType = file match {
       case _ if file.isDirectory => FileType.Directory
+      case _ if isVideo          => FileType.Video
       case _                     => FileType.Misc
     }
 
     def parent: Option[File] = Some(file.getParentFile).filter(null !=)
+    def parentModel: Option[FileModel] = parent.map(_.toModel.copy(tpe = FileType.Parent))
+
+    def isVideo: Boolean = Set("mp4", "m4v") contains extension
+
+    def extension: String = FilenameUtils.getExtension(file.getName)
+
+    def leftNeighbor  = neighbor(_ => true) { case f :: `file` :: Nil => f }
+    def rightNeighbor = neighbor(_ => true) { case `file` :: f :: Nil => f }
+
+    def leftNeighborOfType(allowedTypes: Set[FileType]) =
+      neighbor(f => allowedTypes(f.tpe)) { case f :: `file` :: Nil => f }
+
+    def rightNeighborOfType(allowedTypes: Set[FileType]) =
+      neighbor(f => allowedTypes(f.tpe)) { case `file` :: f :: Nil => f }
+
+    private[this] def neighbor(filter: File => Boolean)(predicate: PartialFunction[List[File], File]): Either[Throwable, Option[File]] =
+      parent.traverse(_.contents).map { mCts: Option[List[File]] =>
+        mCts.flatMap(_.filter(filter).sliding(2, 1).collectFirst(predicate))
+      }
+  }
+
+  implicit class OptionToEither[A](opt: Option[A]) {
+    def toEither: Either[ServerError, A] = opt match {
+      case Some(x) => Right(x)
+      case None    => Left(ServerError(s"Could not extract value from an Option"))
+    }
   }
 
   def main(args: Array[String]): Unit = {
@@ -65,8 +91,16 @@ object MainJVM {
       for {
         contents      <- path.file.contents
         contentsPaths  = contents.map(_.toModel).sortBy(_.tpe != FileType.Directory)
-        maybeParent    = path.file.parent.map(_.toModelAsParent)
+        maybeParent    = path.file.parentModel
       } yield DirContentsResp(contentsPaths, maybeParent)
+
+    case VideoReq(path) =>
+      for {
+        parent        <- path.file.parentModel.toEither
+        maybePrevious <- path.file.leftNeighborOfType (Set(FileType.Video)).map(_.map(_.toModel))
+        maybeNext     <- path.file.rightNeighborOfType(Set(FileType.Video)).map(_.map(_.toModel))
+        streamPath     = s"/video/$path"
+      } yield VideoResp(path.file.getName, streamPath, parent, maybePrevious, maybeNext)
 
     case _ => Left(ServerError(s"Unknown JSON API request: $request"))
   }
