@@ -34,4 +34,8 @@ package object server {
     val javascript = "application/javascript"
     val json       = "application/json"
   }
+
+  object video {
+    val mp4 = "video/mp4"
+  }
 }

@@ -5,6 +5,7 @@ import scala.language.postfixOps
 import java.io.File
 
 import scala.util.Try
+import scala.collection.JavaConverters._
 
 import server._
 import server.ServerAPI._
@@ -12,6 +13,7 @@ import server.ServerAPI._
 import server.StreamableSyntax._
 
 import org.apache.commons.io.{IOUtils, FilenameUtils}
+import org.apache.commons.codec.net.URLCodec
 
 import io.circe.{ Error => CirceError }
 import io.circe.parser.decode
@@ -21,6 +23,7 @@ import cats.data.OptionT, OptionT.{fromOption => liftOpt, liftF}
 import cats.instances.either._
 import cats.syntax.all._
 
+
 object MainJVM {
   type Error[A] = Either[Throwable, A]
 
@@ -29,10 +32,22 @@ object MainJVM {
     def file     : File = new File(str)
   }
 
+  implicit class HttpHeaderString(str: String) {
+    def rangeHeaderWithCeiling(ceil: Long): Either[Throwable, (Long, Long)] =
+      Try { str.drop("bytes=".length).split("-").toList.map(_.toLong) }
+        .toEither.flatMap {
+          case from :: to :: Nil => Right( from -> math.min(ceil - 1, to) )
+          case from :: Nil       => Right( from -> (ceil - 1) )
+          case _ => Left(ServerError("Invalid format of the Range header"))
+        }
+  }
+
   implicit class FileAPI(file: File) {
     def contents: Either[Throwable, List[File]] = Try { file.listFiles }.toEither
       .filterOrElse(null !=, ServerError(s"Error occurred while retrieving the contents of the file: $file"))
       .map(_.toList)
+
+    def size: Either[Throwable, Long] = Try { file.length() }.toEither
 
     def toModel = FileModel(file.getAbsolutePath, file.getName, file.tpe)
 
@@ -73,7 +88,10 @@ object MainJVM {
     }
   }
 
+
   def main(args: Array[String]): Unit = {
+    val videoPath = """/video/(.+)""".r
+    
     val server = createServer(8080) {
       case GET -> "/"                  => Response("html/index.html"  .assetFile.stream, text.html             )
       case GET -> "/js/application.js" => Response("js/application.js".assetFile.stream, application.javascript)
@@ -87,6 +105,27 @@ object MainJVM {
           case e: CirceError => Response(s"Error occurred while parsing JSON request: ${e.toString}".stream, responseCode = 400)
           case e: Throwable  => Response(s"Error occurred: ${e.toString}".stream, responseCode = 400)
         }.merge
+
+      case e @ GET -> videoPath(path) =>
+        (for {
+          file      <- Some(new URLCodec().decode(path).file).filter(_.exists).toEither
+          available <- file.size
+          range     <- e.getRequestHeaders.get("Range").asScala.head.rangeHeaderWithCeiling(available)
+          (from, to) = range
+          length     = to - from + 1
+        } yield Response(
+            payload      = file.stream
+          , contentType  = video.mp4
+          , responseCode = 206
+          , headers      = Map(
+              "Accept-Ranges" ->  "bytes"
+            , "Content-Range" -> s"bytes $from-$to/$available")
+          , writeMethod  = Some { (is, os) => IOUtils.copyLarge(is, os, from, length) }
+          )
+        )
+        .leftMap { e => Response(s"Error occurred: ${e.toString}".stream, responseCode = 400) }
+        .merge
+
     }
     server.start()
   }
