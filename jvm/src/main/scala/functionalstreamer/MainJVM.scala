@@ -31,8 +31,8 @@ object MainJVM {
       case e @ POST -> "/api" =>
         (for {
           req      <- Try { IOUtils.toString(e.getRequestBody, defaultEncoding) }.toEither
-          decoded  <- decode[EchoReq](req)
-          respJson  = handleApi(decoded)
+          decoded  <- decode[APIRequest](req)
+          respJson <- handleApi(decoded)
           response  = Response(respJson.asJson.noSpaces.stream, application.json)
         } yield response).leftMap {
           case e: CirceError => Response(s"Error occurred while parsing JSON request: ${e.toString}".stream, responseCode = 400)
@@ -42,6 +42,8 @@ object MainJVM {
     server.start()
   }
 
-  def handleApi(request: EchoReq): EchoResp =
-    EchoResp(s"Echo response: ${request.str}")
+  def handleApi(request: APIRequest): Either[Throwable, APIResponse] = request match {
+    case EchoReq(str) => Right(EchoResp(s"Echo response: $str"))
+    case _ => Left(ServerError(s"Unknown JSON API request: $request"))
+  }
 }
