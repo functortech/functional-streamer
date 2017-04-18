@@ -64,7 +64,7 @@ object MainJVM {
     case DirContentsReq(path) =>
       for {
         contents      <- path.file.contents
-        contentsPaths  = contents.map(_.toModel)
+        contentsPaths  = contents.map(_.toModel).sortBy(_.tpe != FileType.Directory)
         maybeParent    = path.file.parent.map(_.toModel.copy(tpe = FileType.Parent))
       } yield DirContentsResp(contentsPaths, maybeParent)
 
