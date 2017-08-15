@@ -1,4 +1,4 @@
-A video streaming server. Intended to stream videos over the local network from the host computer to any devices that support browsers.
+A video streaming server. Intended to stream videos over the local network from the host computer to any devices that support browsers. Has a [book](https://functorhub.com/func-arcs/landing.html) written about it.
 
 Usage:
 
