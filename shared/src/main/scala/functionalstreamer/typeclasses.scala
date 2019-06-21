@@ -4,7 +4,7 @@ import cats.{Applicative, Monoid}
 import cats.syntax.monoid._
 
 object typeclasses {
-  implicit def applicativeEither[A: Monoid, ?]: Applicative[Either[A, ?]] = new Applicative[Either[A, ?]] {
+  implicit def applicativeEither[A: Monoid]: Applicative[Either[A, ?]] = new Applicative[Either[A, ?]] {
     def pure[B](x: B): Either[A, B] = Right(x)
 
     def ap[B, C](ff: Either[A, B => C])(fa: Either[A, B]): scala.util.Either[A, C] = (ff, fa) match {
